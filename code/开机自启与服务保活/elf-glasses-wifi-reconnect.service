@@ -1,0 +1,15 @@
+[Unit]
+Description=ELF Glasses WiFi auto reconnect helper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=CONFIG_FILE=/home/elf/.config/elf_glasses_wifi_reconnect.conf
+ExecStart=/home/elf/start_wifi_reconnect.sh run
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

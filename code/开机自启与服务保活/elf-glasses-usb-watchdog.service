@@ -1,0 +1,24 @@
+[Unit]
+Description=ELF Glasses USB Watchdog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=elf
+Group=elf
+WorkingDirectory=/home/elf
+Environment=HOME=/home/elf
+Environment=PATH=/home/elf/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+ExecStartPre=/bin/sleep 20
+ExecStart=/home/elf/elf_glasses_usb_watchdog.sh run
+ExecStop=/home/elf/elf_glasses_usb_watchdog.sh stop
+
+Restart=always
+RestartSec=10
+KillMode=process
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

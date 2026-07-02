@@ -1,0 +1,13 @@
+[Unit]
+Description=ELF Glasses long press recovery button
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/home/elf/elf_glasses_button_recovery.sh run
+Restart=always
+RestartSec=2
+User=root
+
+[Install]
+WantedBy=multi-user.target

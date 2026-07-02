@@ -1,0 +1,12 @@
+[Unit]
+Description=ELF Glasses WiFi preferred / 4G fallback route keeper
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/elf/elf_glasses_net_failover.sh run
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

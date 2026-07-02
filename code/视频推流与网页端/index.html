@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Talkback Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #0f1115;
+      color: #e9edf3;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button {
+      height: 40px;
+      padding: 0 16px;
+      margin-right: 8px;
+      border: 1px solid #2b313b;
+      border-radius: 6px;
+      background: #1c2430;
+      color: #e9edf3;
+      font-size: 15px;
+    }
+    button.primary { background: #2563eb; border-color: #2563eb; }
+    pre {
+      margin-top: 18px;
+      padding: 12px;
+      background: #080b10;
+      border: 1px solid #2b313b;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <h2>Talkback Test</h2>
+  <p>浏览器麦克风 -> MediaMTX glasses_talkback -> 板子播放</p>
+
+  <button id="startBtn" class="primary">开始发送麦克风</button>
+  <button id="stopBtn">停止</button>
+
+  <pre id="log"></pre>
+
+  <script>
+    const WHIP_URL = "http://49.232.181.138:8889/glasses_talkback/whip";
+
+    let pc = null;
+    let stream = null;
+    let resourceUrl = null;
+
+    function log(msg) {
+      const el = document.getElementById("log");
+      el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+    }
+
+    async function waitIceGatheringComplete(pc) {
+      if (pc.iceGatheringState === "complete") return;
+
+      await new Promise(resolve => {
+        const timeout = setTimeout(resolve, 3000);
+        pc.addEventListener("icegatheringstatechange", () => {
+          if (pc.iceGatheringState === "complete") {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+      });
+    }
+
+    async function startTalkback() {
+      if (pc) {
+        log("已经在发送");
+        return;
+      }
+
+      log("请求麦克风权限...");
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      });
+
+      pc = new RTCPeerConnection();
+
+      for (const track of stream.getAudioTracks()) {
+        pc.addTrack(track, stream);
+      }
+
+      pc.addEventListener("connectionstatechange", () => {
+        log("connectionState = " + pc.connectionState);
+      });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitIceGatheringComplete(pc);
+
+      log("POST WHIP: " + WHIP_URL);
+
+      const res = await fetch(WHIP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/sdp"
+        },
+        body: pc.localDescription.sdp
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`WHIP failed: HTTP ${res.status}\n${text}`);
+      }
+
+      resourceUrl = res.headers.get("Location");
+      const answer = await res.text();
+
+      await pc.setRemoteDescription({
+        type: "answer",
+        sdp: answer
+      });
+
+      log("麦克风已发送到 glasses_talkback");
+    }
+
+    async function stopTalkback() {
+      if (resourceUrl) {
+        try {
+          const url = new URL(resourceUrl, WHIP_URL).toString();
+          await fetch(url, { method: "DELETE" });
+        } catch (e) {
+          log("DELETE WHIP failed: " + e.message);
+        }
+      }
+
+      if (pc) {
+        pc.close();
+        pc = null;
+      }
+
+      if (stream) {
+        for (const track of stream.getTracks()) track.stop();
+        stream = null;
+      }
+
+      resourceUrl = null;
+      log("已停止");
+    }
+
+    document.getElementById("startBtn").onclick = () => {
+      startTalkback().catch(err => log("ERROR: " + err.message));
+    };
+
+    document.getElementById("stopBtn").onclick = () => {
+      stopTalkback().catch(err => log("ERROR: " + err.message));
+    };
+  </script>
+</body>
+</html>
