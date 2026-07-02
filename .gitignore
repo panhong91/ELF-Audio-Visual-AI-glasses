@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project specific
+tts_cache*/
+captures/
+logs/
+
+# Secrets / SSH keys
+.ssh/
+id_rsa
+id_ed25519
+authorized_keys
+known_hosts
+
+# Board or local temp files
+.codex/
+.codex_*/
+*.bak
